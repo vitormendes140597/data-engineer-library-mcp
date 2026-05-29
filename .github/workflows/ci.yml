@@ -1,0 +1,99 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11']
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Lint RAG Pipeline
+      run: |
+        cd rag-pipeline
+        pip install -r requirements.txt
+        pip install flake8 black isort
+        black --check src tests || true
+        isort --check-only src tests || true
+        flake8 src tests --max-line-length=100
+
+    - name: Test RAG Pipeline
+      run: |
+        cd rag-pipeline
+        pip install pytest pytest-cov
+        pytest tests/ --cov=src --cov-report=xml
+
+    - name: Lint MCP Server
+      run: |
+        cd mcp-server
+        pip install -r requirements.txt
+        pip install flake8 black isort
+        black --check src tests || true
+        isort --check-only src tests || true
+        flake8 src tests --max-line-length=100
+
+    - name: Test MCP Server
+      run: |
+        cd mcp-server
+        pip install pytest pytest-cov
+        pytest tests/ --cov=src --cov-report=xml
+
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build RAG Pipeline Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./rag-pipeline
+        file: ./rag-pipeline/docker/Dockerfile
+        push: false
+        tags: de-agent-rag:latest
+
+    - name: Build MCP Server Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./mcp-server
+        file: ./mcp-server/docker/Dockerfile
+        push: false
+        tags: de-agent-mcp:latest
+
+  validate-terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Terraform Format Check
+      run: |
+        cd terraform
+        terraform fmt -check -recursive
+
+    - name: Terraform Validate
+      run: |
+        cd terraform
+        terraform validate
