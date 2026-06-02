@@ -25,5 +25,5 @@ resource "azurerm_storage_container" "pdfs" {
 
 resource "azurerm_storage_queue" "jobs" {
   name                 = "pdf-processing-jobs"
-  storage_account_name = azurerm_storage_account.this.name
+  storage_account_id   = azurerm_storage_account.this.id
 }

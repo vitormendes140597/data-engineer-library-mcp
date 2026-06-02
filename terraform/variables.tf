@@ -14,6 +14,11 @@ variable "location" {
   default     = "eastus2"
 }
 
+variable "resource_group_name" {
+  type        = string
+  description = "Name of the resource group"
+}
+
 variable "environment" {
   type        = string
   description = "Deployment environment: dev, staging, or prod"

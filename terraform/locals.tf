@@ -4,7 +4,7 @@ locals {
     project     = "de-agent-rag"
   }
 
-  resource_group_name          = "rg-de-agent-rag-${var.environment}"
+  resource_group_name          = var.resource_group_name
   log_analytics_name           = "log-de-agent-rag-${var.environment}"
   appinsights_name             = "appi-de-agent-rag-${var.environment}"
   storage_account_name         = "stdeagentrag${var.environment}"
