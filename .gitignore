@@ -47,3 +47,18 @@ terraform/.terraform.lock.hcl
 *.tfplan
 .env.terraform
 docker-compose.override.yml
+.github/*
+.serena/*
+.mcp.*
+.codex/*
+
+## Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/environments/*.tfvars
+
+## Scoping edits to specific files
+rag-pipeline-arch/
+terraform-planning-files/

@@ -1,0 +1,13 @@
+services:
+  infra:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: terraform/docker/Dockerfile
+    image: de-agent-terraform:latest
+    env_file:
+      - .env
+    volumes:
+      - ./terraform:/workspace
+    stdin_open: true
+    tty: true
