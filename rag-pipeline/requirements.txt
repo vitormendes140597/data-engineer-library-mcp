@@ -1,0 +1,42 @@
+# Azure SDKs
+azure-storage-blob==12.19.0
+azure-storage-queue==12.16.0
+azure-identity==1.17.1
+azure-ai-projects==2.2.0
+
+# PDF and Image Processing
+PyMuPDF==1.24.1
+Pillow==10.1.0
+
+# Text Processing and Chunking
+langchain==0.1.10
+langchain-core==0.1.28
+
+# Database and ORM
+sqlalchemy==2.0.23
+greenlet==3.0.3
+psycopg2-binary==2.9.9
+psycopg[binary]==3.1.14
+alembic==1.13.0
+pgvector==0.2.3
+
+# Configuration
+python-dotenv==1.0.0
+pydantic==2.5.0
+
+# Utilities
+requests==2.31.0
+click==8.1.7
+openai==2.8.0
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-asyncio==0.23.1
+moto==4.2.10
+testcontainers==4.8.2
+
+# Linting and Formatting
+black==23.12.0
+isort==5.13.2
+flake8==6.1.0

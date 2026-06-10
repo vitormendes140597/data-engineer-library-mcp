@@ -1,51 +1,45 @@
-# RAG Pipeline - Data Extraction and Vectorization
+# RAG Pipeline
 
-This component handles the extraction, processing, and vectorization of data engineering knowledge from books.
+The RAG pipeline ingests PDF blobs, extracts markdown and images, creates embeddings, and stores
+searchable chunks plus retry state in PostgreSQL pgvector.
 
-## Purpose
+## Architecture Overview
 
-Extract data from data engineering books, standardize the content, create vector embeddings, and store them in a vector database for semantic retrieval.
+```text
+BlobCreated/BlobDeleted -> Storage Queue -> ingestion_worker
+                                      |-> Blob download (Azure/Azurite)
+                                      |-> PDF markdown extraction
+                                      |-> Image extraction/upload
+                                      |-> Chunking + image linking
+                                      |-> Embedding provider
+                                      `-> PostgreSQL pgvector persistence
 
-## Architecture
-
-```
-Books → Extraction → Standardization → Chunking → Embedding → Vector DB
-```
-
-## Technologies
-
-- **LangChain**: Document processing and RAG orchestration
-- **Python**: Core implementation language
-- **Docker**: Containerization
-- **Azure Blob Storage**: Document storage (Azurite for local development)
-- **Vector Database**: Storage and retrieval (to be determined)
-
-## Project Structure
-
-```
-rag-pipeline/
-├── src/
-│   ├── extractors/         # Document extraction logic
-│   ├── processors/         # Data standardization
-│   ├── embeddings/         # Vector embedding generation
-│   ├── storage/            # Vector database operations
-│   └── main.py             # Entry point
-├── tests/                  # Unit and integration tests
-├── docker/
-│   └── Dockerfile
-├── requirements.txt        # Python dependencies
-└── README.md
+processing_failures -> reprocessor -> retry processing or permanently_failed
 ```
 
-## Development
+Key runtime components:
+- `src/ingestion_worker.py`: processes at most one queue message per execution
+- `src/reprocessor.py`: retries due `processing_failures` rows
+- `src/cli.py`: local helper commands for Azurite bootstrap and Event Grid-shaped messages
+- `src/persistence/`: SQLAlchemy models and repository methods
+- `src/extraction/`, `src/chunking/`, `src/embeddings/`: document processing pipeline
+
+## Local Setup
 
 ### Prerequisites
 
 - Python 3.10+
-- Docker
-- Azurite (Docker image or local installation)
+- Docker and Docker Compose
 
-### Setup
+### Start local dependencies
+
+From the repository root:
+
+```bash
+docker compose up -d azurite postgres
+```
+
+### Install Python dependencies
 
 ```bash
 cd rag-pipeline
@@ -54,35 +48,177 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Running Locally
+### Example `.env`
+
+Create `rag-pipeline/.env`:
+
+```env
+STORAGE_MODE=azurite
+AZURE_STORAGE_BLOB_CONN_STR=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;
+AZURE_STORAGE_QUEUE_CONN_STR=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;
+QUEUE_NAME=pdf-processing-jobs
+RAW_PDFS_CONTAINER=raw-pdfs
+EXTRACTED_IMAGES_CONTAINER=extracted-images
+DATABASE_URL=postgresql+psycopg://rag_user:rag_password@127.0.0.1:5432/rag_db
+DB_POOL_SIZE=5
+DB_MAX_OVERFLOW=10
+DB_ECHO_SQL=false
+EMBEDDING_PROVIDER=fake
+FAKE_EMBEDDING_DIMENSION=1536
+AZURE_AI_FOUNDRY_PROJECT=
+AZURE_AI_FOUNDRY_ENDPOINT=
+AZURE_AI_FOUNDRY_DEPLOYMENT=
+EMBEDDING_BATCH_SIZE=25
+EMBEDDING_MAX_TOKENS_PER_BATCH=8000
+CHUNK_SIZE=1024
+CHUNK_OVERLAP=128
+MAX_RETRY_ATTEMPTS=3
+INITIAL_RETRY_DELAY_SECONDS=300
+MAX_RETRY_DELAY_SECONDS=3600
+USE_MANAGED_IDENTITY=true
+AZURE_TENANT_ID=
+AZURE_CLIENT_ID=
+AZURE_CLIENT_SECRET=
+OBSERVABILITY_ENABLED=true
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AZURE_STORAGE_QUEUE_CONN_STR` | required | Queue connection string for Azure Storage Queue or Azurite. |
+| `QUEUE_NAME` | `pdf-processing-jobs` | Queue consumed by the ingestion worker and CLI. |
+| `QUEUE_VISIBILITY_TIMEOUT_SECONDS` | `3600` | Visibility timeout for received queue messages. |
+| `QUEUE_MAX_RECEIVE_MESSAGES` | `1` | Max messages requested per worker run; code caps processing to one message. |
+| `AZURE_STORAGE_BLOB_CONN_STR` | required | Blob connection string for Azure Storage or Azurite. |
+| `RAW_PDFS_CONTAINER` | `raw-pdfs` | Container storing source PDFs. |
+| `EXTRACTED_IMAGES_CONTAINER` | `extracted-images` | Container storing extracted image artifacts. |
+| `STORAGE_MODE` | `azurite` | Storage backend mode: `azurite` or `azure`. |
+| `DATABASE_URL` | required | PostgreSQL connection string used by Alembic and SQLAlchemy. |
+| `DB_POOL_SIZE` | `5` | SQLAlchemy connection pool size. |
+| `DB_MAX_OVERFLOW` | `10` | Extra pooled connections allowed above `DB_POOL_SIZE`. |
+| `DB_ECHO_SQL` | `false` | Enables SQL logging when set to `true`. |
+| `EMBEDDING_PROVIDER` | `fake` | Embedding backend: `fake` or `azure_ai_foundry`. |
+| `FAKE_EMBEDDING_DIMENSION` | `1536` | Vector dimension used by deterministic fake embeddings. |
+| `AZURE_AI_FOUNDRY_PROJECT` | empty | Azure AI Foundry project name when using real embeddings. |
+| `AZURE_AI_FOUNDRY_ENDPOINT` | empty | Azure AI Foundry endpoint or project API endpoint. |
+| `AZURE_AI_FOUNDRY_DEPLOYMENT` | empty | Azure AI Foundry embedding deployment/model name. |
+| `EMBEDDING_BATCH_SIZE` | `25` | Maximum texts per embedding batch. |
+| `EMBEDDING_MAX_TOKENS_PER_BATCH` | `8000` | Approximate token cap per embedding batch. |
+| `CHUNK_SIZE` | `1024` | Max chunk size passed to the chunker. |
+| `CHUNK_OVERLAP` | `128` | Overlap between adjacent chunks. |
+| `CHUNK_SEPARATORS` | internal default | Chunk separator list; currently defined in code defaults. |
+| `MAX_RETRY_ATTEMPTS` | `3` | Maximum reprocessing attempts before permanent failure. |
+| `INITIAL_RETRY_DELAY_SECONDS` | `300` | Initial retry delay used for exponential backoff. |
+| `MAX_RETRY_DELAY_SECONDS` | `3600` | Upper bound for retry backoff. |
+| `USE_MANAGED_IDENTITY` | `true` | Uses managed identity when downloading from Azure. |
+| `AZURE_TENANT_ID` | empty | Service principal tenant ID for explicit Azure auth. |
+| `AZURE_CLIENT_ID` | empty | Managed identity or service principal client ID. |
+| `AZURE_CLIENT_SECRET` | empty | Service principal client secret. |
+| `OBSERVABILITY_ENABLED` | `true` | Flag reserved for runtime observability configuration. |
+
+## Configuration Precedence
+
+Configuration is loaded in this order:
+
+1. Explicit process environment variables
+2. Values from `rag-pipeline/.env`
+3. Code defaults in `src/config.py`
+
+`python-dotenv` is loaded with `override=False`, so real environment variables always win over
+`.env` values.
+
+## Running Migrations
+
+Apply the schema to PostgreSQL:
 
 ```bash
-python src/main.py
+cd rag-pipeline
+alembic upgrade head
 ```
 
-### Docker
+Rollback all migrations:
 
 ```bash
-docker build -t de-agent-rag:latest -f docker/Dockerfile .
-docker run -v $(pwd)/data:/data -e AZURITE_ACCOUNT_NAME=devstoreaccount1 de-agent-rag:latest
+alembic downgrade base
 ```
 
-## Configuration
+## Ingestion Worker
 
-Configuration is managed via environment variables:
+Process a single visible queue message and exit:
 
+```bash
+cd rag-pipeline
+python -m src.ingestion_worker
 ```
-AZURE_STORAGE_CONNECTION_STRING=...
-VECTOR_DB_ENDPOINT=...
-VECTOR_DB_KEY=...
+
+Behavior summary:
+- parses Event Grid-shaped `BlobCreated` and `BlobDeleted` messages
+- skips same-size reuploads for completed documents
+- replaces changed-size documents transactionally
+- records failures in `processing_failures`
+
+## Reprocessor
+
+Retry due failures from PostgreSQL:
+
+```bash
+cd rag-pipeline
+python -m src.reprocessor
 ```
 
-For local development, use `.env` file or docker-compose.
+The reprocessor claims pending rows, retries processing, marks rows as `resolved`, and marks
+exhausted rows as `permanently_failed`.
 
-## Next Steps
+## Local Helper Commands
 
-1. Implement document extractors for various book formats (PDF, EPUB, etc.)
-2. Create standardization processors
-3. Integrate with LangChain for chunking and embedding
-4. Set up vector database integration
-5. Add comprehensive testing
+Bootstrap Azurite containers and queue:
+
+```bash
+cd rag-pipeline
+python -m src.cli bootstrap
+```
+
+Upload a PDF and enqueue a local `BlobCreated` message:
+
+```bash
+python -m src.cli upload-pdf /absolute/path/to/book.pdf
+```
+
+Enqueue a local `BlobDeleted` message for a blob URL:
+
+```bash
+python -m src.cli delete-blob "http://127.0.0.1:10000/devstoreaccount1/raw-pdfs/book.pdf"
+```
+
+## Development
+
+Run the test suite with coverage:
+
+```bash
+cd rag-pipeline
+pytest tests/ --cov=src
+```
+
+Format code:
+
+```bash
+black src tests
+isort src tests
+```
+
+Lint code:
+
+```bash
+flake8 src tests --max-line-length=100
+```
+
+## Local Workflow Summary
+
+1. `docker compose up -d azurite postgres`
+2. `cd rag-pipeline && source venv/bin/activate`
+3. `alembic upgrade head`
+4. `python -m src.cli bootstrap`
+5. `python -m src.cli upload-pdf /path/to/file.pdf`
+6. `python -m src.ingestion_worker`
+7. `python -m src.reprocessor` for retry validation when needed
