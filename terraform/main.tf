@@ -110,9 +110,15 @@ module "container_apps" {
   log_analytics_workspace_resource_id = module.observability.workspace_resource_id
   acr_login_server                    = module.acr.login_server
   storage_account_name                = module.storage.name
+  raw_pdf_container_name              = module.storage.raw_pdf_container_name
+  extracted_images_container_name     = module.storage.extracted_images_container_name
+  queue_name                          = module.storage.queue_name
   postgresql_secret_versionless_id    = module.key_vault.postgresql_secret_versionless_id
   openai_secret_versionless_id        = module.key_vault.openai_secret_versionless_id
   appinsights_secret_versionless_id   = module.key_vault.appinsights_secret_versionless_id
+  image_tag                           = var.image_tag
+  reprocessor_schedule                = var.reprocessor_schedule
+  reprocessor_max_parallelism         = var.reprocessor_max_parallelism
   tags                                = local.tags
 }
 
@@ -122,6 +128,7 @@ module "rbac" {
   source = "./modules/rbac"
 
   container_app_principal_id  = module.container_apps.identity_principal_id
+  reprocessor_principal_id    = module.container_apps.reprocessor_identity_principal_id
   event_grid_principal_id     = module.event_pipeline.identity_principal_id
   storage_account_resource_id = module.storage.resource_id
   acr_resource_id             = module.acr.resource_id

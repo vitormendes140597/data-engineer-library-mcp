@@ -40,3 +40,21 @@ variable "postgres_admin_password" {
   description = "PostgreSQL administrator password. Pass via TF_VAR_postgres_admin_password — do NOT store in .tfvars files."
   sensitive   = true
 }
+
+variable "image_tag" {
+  type        = string
+  description = "Container image tag to deploy"
+  default     = "latest"
+}
+
+variable "reprocessor_schedule" {
+  type        = string
+  description = "Cron schedule for reprocessor job (e.g., '0 23 * * *' for 11 PM UTC)"
+  default     = "0 23 * * *"
+}
+
+variable "reprocessor_max_parallelism" {
+  type        = number
+  description = "Maximum number of parallel executions for reprocessor job"
+  default     = 1
+}

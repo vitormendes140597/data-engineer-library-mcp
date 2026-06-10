@@ -9,10 +9,6 @@ resource "azurerm_postgresql_flexible_server" "this" {
   storage_mb                    = var.storage_mb
   public_network_access_enabled = true
 
-  lifecycle {
-    prevent_destroy = true
-  }
-
   tags = var.tags
 }
 

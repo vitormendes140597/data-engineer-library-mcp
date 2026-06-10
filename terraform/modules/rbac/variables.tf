@@ -3,6 +3,11 @@ variable "container_app_principal_id" {
   description = "System-assigned MI principal ID of the Container App"
 }
 
+variable "reprocessor_principal_id" {
+  type        = string
+  description = "System-assigned MI principal ID of the Reprocessor Container App Job"
+}
+
 variable "event_grid_principal_id" {
   type        = string
   description = "System-assigned MI principal ID of the Event Grid System Topic"

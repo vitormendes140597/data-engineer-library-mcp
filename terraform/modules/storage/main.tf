@@ -23,6 +23,12 @@ resource "azurerm_storage_container" "pdfs" {
   container_access_type = "private"
 }
 
+resource "azurerm_storage_container" "extracted_images" {
+  name                  = "extracted-images"
+  storage_account_id    = azurerm_storage_account.this.id
+  container_access_type = "private"
+}
+
 resource "azurerm_storage_queue" "jobs" {
   name                 = "pdf-processing-jobs"
   storage_account_id   = azurerm_storage_account.this.id

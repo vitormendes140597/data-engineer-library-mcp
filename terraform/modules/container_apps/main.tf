@@ -59,6 +59,26 @@ resource "azurerm_container_app" "rag_worker" {
       }
 
       env {
+        name  = "RAW_PDF_CONTAINER_NAME"
+        value = var.raw_pdf_container_name
+      }
+
+      env {
+        name  = "EXTRACTED_IMAGES_CONTAINER_NAME"
+        value = var.extracted_images_container_name
+      }
+
+      env {
+        name  = "QUEUE_NAME"
+        value = var.queue_name
+      }
+
+      env {
+        name  = "WORKER_MODE"
+        value = "one-message"
+      }
+
+      env {
         name        = "POSTGRES_CONNECTION_STRING"
         secret_name = "postgresql-connection-string"
       }
@@ -79,11 +99,97 @@ resource "azurerm_container_app" "rag_worker" {
       name             = "queue-length"
       custom_rule_type = "azure-queue"
       metadata = {
-        queueName             = "pdf-processing-jobs"
+        queueName             = var.queue_name
         accountName           = var.storage_account_name
         queueLength           = "1"
         activationQueueLength = "0"
       }
     }
+  }
+}
+
+resource "azurerm_container_app_job" "reprocessor" {
+  name                         = var.reprocessor_job_name != "" ? var.reprocessor_job_name : "${var.app_name}-reprocessor"
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  replica_timeout_in_seconds   = 3600
+  tags                         = var.tags
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  registry {
+    server = var.acr_login_server
+    identity = "System"
+  }
+
+  secret {
+    name                = "postgresql-connection-string"
+    identity            = "System"
+    key_vault_secret_id = var.postgresql_secret_versionless_id
+  }
+
+  secret {
+    name                = "openai-endpoint"
+    identity            = "System"
+    key_vault_secret_id = var.openai_secret_versionless_id
+  }
+
+  secret {
+    name                = "applicationinsights-connection-string"
+    identity            = "System"
+    key_vault_secret_id = var.appinsights_secret_versionless_id
+  }
+
+  template {
+    container {
+      name   = "reprocessor"
+      image  = "${var.acr_login_server}/de-agent-rag:${var.image_tag}"
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "BLOB_STORAGE_ACCOUNT_NAME"
+        value = var.storage_account_name
+      }
+
+      env {
+        name  = "RAW_PDF_CONTAINER_NAME"
+        value = var.raw_pdf_container_name
+      }
+
+      env {
+        name  = "EXTRACTED_IMAGES_CONTAINER_NAME"
+        value = var.extracted_images_container_name
+      }
+
+      env {
+        name  = "WORKER_MODE"
+        value = "reprocessor"
+      }
+
+      env {
+        name        = "POSTGRES_CONNECTION_STRING"
+        secret_name = "postgresql-connection-string"
+      }
+
+      env {
+        name        = "OPENAI_ENDPOINT"
+        secret_name = "openai-endpoint"
+      }
+
+      env {
+        name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        secret_name = "applicationinsights-connection-string"
+      }
+    }
+  }
+
+  schedule_trigger_config {
+    cron_expression          = var.reprocessor_schedule
+    parallelism              = var.reprocessor_max_parallelism
+    replica_completion_count = 1
   }
 }

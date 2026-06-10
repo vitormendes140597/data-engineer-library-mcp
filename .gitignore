@@ -62,3 +62,4 @@ terraform/environments/*.tfvars
 ## Scoping edits to specific files
 rag-pipeline-arch/
 terraform-planning-files/
+events/*
