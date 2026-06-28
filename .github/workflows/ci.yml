@@ -95,6 +95,11 @@ jobs:
         cd terraform
         terraform fmt -check -recursive
 
+    - name: Terraform Init
+      run: |
+        cd terraform
+        terraform init -backend=false -input=false
+
     - name: Terraform Validate
       run: |
         cd terraform
