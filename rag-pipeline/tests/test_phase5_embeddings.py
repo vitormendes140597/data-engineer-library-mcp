@@ -8,9 +8,11 @@ import pytest
 
 from src.config import EmbeddingConfig
 from src.embeddings.batcher import batch_embed
-from src.embeddings.provider import (AzureAIFoundryEmbeddingProvider,
-                                     FakeEmbeddingProvider,
-                                     get_embedding_provider)
+from src.embeddings.provider import (
+    AzureAIFoundryEmbeddingProvider,
+    FakeEmbeddingProvider,
+    get_embedding_provider,
+)
 
 
 @pytest.mark.asyncio

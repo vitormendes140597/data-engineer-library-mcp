@@ -5,8 +5,11 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-from azure.identity.aio import (ClientSecretCredential, DefaultAzureCredential,
-                                ManagedIdentityCredential)
+from azure.identity.aio import (
+    ClientSecretCredential,
+    DefaultAzureCredential,
+    ManagedIdentityCredential,
+)
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
 from src.config import RAGConfig
