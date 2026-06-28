@@ -77,7 +77,9 @@ async def test_blob_created_for_same_size_document_skips_processing(
     parser: EventParser,
 ) -> None:
     event = parser.parse(blob_created_payload)
-    repository.get_document_by_blob_url.return_value = SimpleNamespace(content_length=123)
+    repository.get_document_by_blob_url.return_value = SimpleNamespace(
+        content_length=123
+    )
 
     outcome = await handler.handle_blob_created(event)
 
@@ -105,7 +107,9 @@ async def test_blob_created_for_changed_size_document_replaces_before_reingestin
         call_order.append(f"delete:{blob_url}")
         return ["images/old.png"]
 
-    async def trigger_reingestion(blob_url: str, content_length: int | None, etag: str | None) -> None:
+    async def trigger_reingestion(
+        blob_url: str, content_length: int | None, etag: str | None
+    ) -> None:
         call_order.append(f"reingest:{blob_url}:{content_length}:{etag}")
 
     repository.delete_document_content.side_effect = delete_document_content

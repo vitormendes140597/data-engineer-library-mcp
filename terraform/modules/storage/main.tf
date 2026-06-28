@@ -30,6 +30,6 @@ resource "azurerm_storage_container" "extracted_images" {
 }
 
 resource "azurerm_storage_queue" "jobs" {
-  name                 = "pdf-processing-jobs"
-  storage_account_id   = azurerm_storage_account.this.id
+  name               = "pdf-processing-jobs"
+  storage_account_id = azurerm_storage_account.this.id
 }

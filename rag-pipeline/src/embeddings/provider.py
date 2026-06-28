@@ -13,8 +13,14 @@ from collections.abc import Callable
 from azure.ai.projects.aio import AIProjectClient as ProjectClient
 from azure.core.credentials_async import AsyncTokenCredential
 from azure.identity.aio import DefaultAzureCredential
-from openai import (APIConnectionError, APIStatusError, APITimeoutError,
-                    AsyncOpenAI, InternalServerError, RateLimitError)
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AsyncOpenAI,
+    InternalServerError,
+    RateLimitError,
+)
 
 from src.config import EmbeddingConfig
 

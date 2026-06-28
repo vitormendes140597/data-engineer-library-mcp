@@ -16,11 +16,7 @@ if __package__ in {None, ""}:
     package_root = src_dir.parent
     sys.path = [
         str(package_root),
-        *[
-            path
-            for path in sys.path
-            if Path(path or ".").resolve() != src_dir
-        ],
+        *[path for path in sys.path if Path(path or ".").resolve() != src_dir],
     ]
     runpy.run_module("src.cli", run_name="__main__")
     raise SystemExit(0)
@@ -31,6 +27,7 @@ from typing import TypeVar
 from uuid import uuid4
 
 import click
+from azure.core.exceptions import ResourceExistsError
 
 from src.blob.client import BlobClient
 from src.config import RAGConfig
@@ -236,11 +233,8 @@ async def _bootstrap_async() -> None:
                         container_name
                     ).create_container()
                     click.echo(f"✓ Created blob container: {container_name}")
-                except Exception as exc:
-                    if "ContainerAlreadyExists" in str(exc):
-                        click.echo(f"✓ Blob container already exists: {container_name}")
-                    else:
-                        raise
+                except ResourceExistsError:
+                    click.echo(f"✓ Blob container already exists: {container_name}")
         finally:
             await blob_service.close()
 
@@ -252,13 +246,8 @@ async def _bootstrap_async() -> None:
             try:
                 await queue.create_queue()
                 click.echo(f"✓ Created storage queue: {config.queue.queue_name}")
-            except Exception as exc:
-                if "QueueAlreadyExists" in str(exc):
-                    click.echo(
-                        f"✓ Storage queue already exists: {config.queue.queue_name}"
-                    )
-                else:
-                    raise
+            except ResourceExistsError:
+                click.echo(f"✓ Storage queue already exists: {config.queue.queue_name}")
             finally:
                 await queue.close()
         finally:

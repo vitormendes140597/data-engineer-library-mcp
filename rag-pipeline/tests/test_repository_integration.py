@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
-import pytest
-
+from src.config import VECTOR_DIMENSION
 from src.persistence.models import ChunkImage
 from src.persistence.repository import (
     ChunkCreate,
@@ -49,7 +49,7 @@ async def test_insert_chunks_with_pgvector_embeddings(repository: object) -> Non
                 page_start=1,
                 page_end=2,
                 text="Chunk one",
-                embedding=[0.1] * 8,
+                embedding=[0.1] * VECTOR_DIMENSION,
                 metadata={"heading": "Intro"},
             )
         ],
@@ -61,7 +61,7 @@ async def test_insert_chunks_with_pgvector_embeddings(repository: object) -> Non
 
     assert fetched is not None
     assert len(fetched.chunks) == 1
-    assert fetched.chunks[0].embedding == [0.1] * 8
+    assert list(fetched.chunks[0].embedding) == pytest.approx([0.1] * VECTOR_DIMENSION)
     assert fetched.chunks[0].metadata_json == {"heading": "Intro"}
 
 
@@ -82,7 +82,7 @@ async def test_transactional_replacement_removes_old_chunks_and_inserts_new_rows
                 page_start=1,
                 page_end=1,
                 text="Old chunk",
-                embedding=[0.2] * 8,
+                embedding=[0.2] * VECTOR_DIMENSION,
             )
         ],
         images=[
@@ -109,7 +109,7 @@ async def test_transactional_replacement_removes_old_chunks_and_inserts_new_rows
                 page_start=2,
                 page_end=2,
                 text="New chunk",
-                embedding=[0.3] * 8,
+                embedding=[0.3] * VECTOR_DIMENSION,
             )
         ],
         images=[
@@ -148,14 +148,14 @@ async def test_chunk_image_linking_is_persisted_in_database(repository: object) 
                 page_start=2,
                 page_end=4,
                 text="Chunk spanning pages 2-4",
-                embedding=[0.4] * 8,
+                embedding=[0.4] * VECTOR_DIMENSION,
             ),
             ChunkCreate(
                 chunk_index=1,
                 page_start=4,
                 page_end=4,
                 text="Chunk on page 4",
-                embedding=[0.5] * 8,
+                embedding=[0.5] * VECTOR_DIMENSION,
             ),
         ],
         images=[
@@ -181,12 +181,18 @@ async def test_chunk_image_linking_is_persisted_in_database(repository: object) 
 
     async with repository._session_factory() as session:  # noqa: SLF001
         stored_links = (
-            await session.execute(
-                select(ChunkImage).where(
-                    ChunkImage.chunk_id.in_([chunk.id for chunk in replacement.chunks])
+            (
+                await session.execute(
+                    select(ChunkImage).where(
+                        ChunkImage.chunk_id.in_(
+                            [chunk.id for chunk in replacement.chunks]
+                        )
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     assert len(stored_links) == 3
     assert {str(link.chunk_id) for link in stored_links} == {

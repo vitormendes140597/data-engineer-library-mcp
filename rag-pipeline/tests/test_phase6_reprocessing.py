@@ -57,6 +57,14 @@ class _FakeRepository:
         self.get_document_by_blob_url = AsyncMock(return_value=None)
 
 
+class _RecordingRepository(_FakeRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self.replace_document_contents = AsyncMock(
+            return_value=SimpleNamespace(replaced_image_paths=[])
+        )
+
+
 def _build_config() -> RAGConfig:
     return RAGConfig(
         queue=QueueConfig(AZURE_STORAGE_QUEUE_CONN_STR="UseDevelopmentStorage=true"),
@@ -232,6 +240,44 @@ async def test_process_blob_skips_completed_duplicate(monkeypatch) -> None:
         repository,
         blob_client,
     )
+
+
+@pytest.mark.asyncio
+async def test_process_blob_persists_structured_chunk_metadata(
+    monkeypatch,
+    sample_pdf_bytes,
+) -> None:
+    repository = _RecordingRepository()
+    blob_client = SimpleNamespace(delete_extracted_image_blobs=AsyncMock())
+    config = _build_config()
+
+    async def _download_pdf(*_args, **_kwargs):
+        return sample_pdf_bytes
+
+    async def _extract_images(*_args, **_kwargs):
+        return []
+
+    monkeypatch.setattr("src.reprocessing.reprocessor.download_pdf", _download_pdf)
+    monkeypatch.setattr(
+        "src.reprocessing.reprocessor.extract_and_upload_images", _extract_images
+    )
+
+    await process_blob(
+        _blob_created_payload()["data"]["url"],
+        len(sample_pdf_bytes),
+        '"etag-1"',
+        config,
+        repository,
+        blob_client,
+    )
+
+    chunks = repository.replace_document_contents.await_args.kwargs["chunks"]
+
+    assert chunks
+    assert chunks[0].metadata["page_range"] == [1, 1]
+    assert "heading_path" in chunks[0].metadata
+    assert "element_types" in chunks[0].metadata
+    assert "source_elements" in chunks[0].metadata
 
 
 @pytest.mark.asyncio

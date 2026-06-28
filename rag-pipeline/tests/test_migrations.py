@@ -22,7 +22,9 @@ def test_alembic_upgrade_creates_expected_tables_columns_and_indexes(
             "alembic_version",
         }.issubset(tables)
 
-        document_columns = {column["name"] for column in inspector.get_columns("documents")}
+        document_columns = {
+            column["name"] for column in inspector.get_columns("documents")
+        }
         chunk_columns = {column["name"] for column in inspector.get_columns("chunks")}
         image_columns = {column["name"] for column in inspector.get_columns("images")}
         failure_columns = {
@@ -78,9 +80,12 @@ def test_alembic_upgrade_creates_expected_tables_columns_and_indexes(
         assert "ix_processing_failures_status_next_retry_at" in failure_indexes
 
         with engine.connect() as connection:
-            assert connection.execute(
-                text("SELECT extname FROM pg_extension WHERE extname = 'vector'")
-            ).scalar_one() == "vector"
+            assert (
+                connection.execute(
+                    text("SELECT extname FROM pg_extension WHERE extname = 'vector'")
+                ).scalar_one()
+                == "vector"
+            )
             assert connection.execute(
                 text(
                     "SELECT indexdef FROM pg_indexes "

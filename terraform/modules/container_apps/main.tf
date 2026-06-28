@@ -121,7 +121,7 @@ resource "azurerm_container_app_job" "reprocessor" {
   }
 
   registry {
-    server = var.acr_login_server
+    server   = var.acr_login_server
     identity = "System"
   }
 

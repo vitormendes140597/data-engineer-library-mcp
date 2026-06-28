@@ -68,7 +68,9 @@ def test_parse_supports_standard_blob_urls_without_subject(parser: EventParser) 
             "eventType": "Microsoft.Storage.BlobDeleted",
             "subject": "",
             "eventTime": datetime(2026, 1, 3, 8, 0, tzinfo=timezone.utc),
-            "data": {"url": "https://acct.blob.core.windows.net/raw-pdfs/folder/file.pdf"},
+            "data": {
+                "url": "https://acct.blob.core.windows.net/raw-pdfs/folder/file.pdf"
+            },
         }
     )
 
@@ -81,7 +83,11 @@ def test_parse_supports_standard_blob_urls_without_subject(parser: EventParser) 
     [
         ("{not-valid-json}", json.JSONDecodeError, ""),
         ([], ValueError, "Queue message did not contain an event payload"),
-        (123, ValueError, "Queue message must contain a JSON object or single-item list"),
+        (
+            123,
+            ValueError,
+            "Queue message must contain a JSON object or single-item list",
+        ),
     ],
 )
 def test_parse_rejects_malformed_payloads(

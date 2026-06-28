@@ -9,13 +9,13 @@ from uuid import uuid4
 import fitz
 import pytest
 import pytest_asyncio
-from alembic import command
-from alembic.config import Config
 from azure.core.exceptions import ResourceExistsError
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from testcontainers.core.container import DockerContainer
 
+from alembic import command
+from alembic.config import Config
 from src.blob.client import BlobClient
 from src.config import (
     AzureIdentityConfig,
@@ -66,7 +66,9 @@ def _build_test_config(
             max_tokens_per_batch=8,
         ),
         chunking=ChunkingConfig(chunk_size=400, chunk_overlap=50),
-        retry=RetryConfig(max_attempts=3, initial_delay_seconds=5, max_delay_seconds=20),
+        retry=RetryConfig(
+            max_attempts=3, initial_delay_seconds=5, max_delay_seconds=20
+        ),
         azure_identity=AzureIdentityConfig(),
         OBSERVABILITY_ENABLED=False,
     )
@@ -228,8 +230,11 @@ def migrated_database_url(postgres_database_url: str) -> str:
 
 
 @pytest_asyncio.fixture
-async def repository(migrated_database_url: str) -> Repository:
-    repo = Repository(DatabaseConfig(DATABASE_URL=migrated_database_url))
+async def repository(migrated_database_url: str, rag_config: RAGConfig) -> Repository:
+    repo = Repository(
+        DatabaseConfig(DATABASE_URL=migrated_database_url),
+        retry_config=rag_config.retry,
+    )
     try:
         yield repo
     finally:

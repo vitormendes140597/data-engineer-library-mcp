@@ -9,7 +9,7 @@ from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from src.blob.client import BlobClient
-from src.chunking.chunker import chunk_text
+from src.chunking.chunker import chunk_elements
 from src.chunking.image_linking import link_chunks_to_images
 from src.config import RAGConfig
 from src.embeddings.batcher import batch_embed
@@ -17,11 +17,15 @@ from src.embeddings.provider import get_embedding_provider
 from src.events.parser import EventParser
 from src.extraction.downloader import download_pdf
 from src.extraction.image_extractor import extract_and_upload_images
-from src.extraction.pdf_parser import extract_markdown
+from src.extraction.pdf_parser import extract_structure
 from src.persistence.models import DOCUMENT_STATUS_COMPLETED
-from src.persistence.repository import (ChunkCreate, ChunkImageLinkCreate,
-                                        DocumentCreate, ImageCreate,
-                                        Repository)
+from src.persistence.repository import (
+    ChunkCreate,
+    ChunkImageLinkCreate,
+    DocumentCreate,
+    ImageCreate,
+    Repository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +82,7 @@ async def process_blob(
             ) from exc
 
         try:
-            markdown = await extract_markdown(pdf_bytes)
+            extraction_result = await extract_structure(pdf_bytes)
             images = await extract_and_upload_images(
                 pdf_bytes,
                 document_id=document_id,
@@ -93,7 +97,7 @@ async def process_blob(
             ) from exc
 
         try:
-            chunks = await chunk_text(markdown["page_contents"], config.chunking)
+            chunks = await chunk_elements(extraction_result.elements, config.chunking)
             links = await link_chunks_to_images(chunks, images)
         except Exception as exc:
             await _cleanup_uploaded_images(blob_client, uploaded_image_paths)

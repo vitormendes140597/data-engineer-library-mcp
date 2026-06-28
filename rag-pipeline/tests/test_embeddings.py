@@ -66,7 +66,9 @@ class FakeCredential:
 
 @pytest.mark.asyncio
 async def test_get_embedding_provider_selects_fake_provider() -> None:
-    provider = get_embedding_provider(EmbeddingConfig(provider="fake", fake_dimension=4))
+    provider = get_embedding_provider(
+        EmbeddingConfig(provider="fake", fake_dimension=4)
+    )
 
     assert isinstance(provider, FakeEmbeddingProvider)
 
@@ -147,7 +149,12 @@ async def test_azure_foundry_provider_uses_mocked_projects_client() -> None:
     assert embedding == [0.1, 0.2, 0.3]
     assert len(FakeProjectClient.instances) == 1
     client = FakeProjectClient.instances[0]
-    assert client.endpoint == "https://example.services.ai.azure.com/api/projects/demo-project"
-    assert client.openai_client.embeddings.calls == [(["hello"], "text-embedding-3-large")]
+    assert (
+        client.endpoint
+        == "https://example.services.ai.azure.com/api/projects/demo-project"
+    )
+    assert client.openai_client.embeddings.calls == [
+        (["hello"], "text-embedding-3-large")
+    ]
     assert client.closed is True
     assert client.openai_client.closed is True

@@ -24,6 +24,26 @@ Key runtime components:
 - `src/persistence/`: SQLAlchemy models and repository methods
 - `src/extraction/`, `src/chunking/`, `src/embeddings/`: document processing pipeline
 
+## Structured PDF Extraction and Chunking
+
+PDF ingestion now uses PyMuPDF to build a structured document representation before
+chunking. The extractor emits typed elements for headings, paragraphs, list items, and
+PyMuPDF-detected tables with page provenance, bounding boxes, style metadata, and rendered
+markdown. Repeated header/footer text and simple page numbers are filtered conservatively
+from the top and bottom page bands.
+
+The structure-aware chunker packs elements rather than splitting one flattened markdown
+string. It preserves active heading paths in chunk text and metadata, computes page ranges
+from source elements, keeps tables atomic when they fit the chunk budget, and splits
+oversized tables by row groups while repeating table context. Oversized paragraph-like
+elements still use the configured recursive splitter as a fallback.
+
+Persistence continues to use the existing `chunks` table. Richer values such as
+`heading_path`, `element_types`, `source_elements`, table summaries, and bounding-box
+references are stored in the existing `chunks.metadata` JSON column. The legacy
+`extract_markdown()` and `chunk_text()` APIs remain available for compatibility and
+rollback paths.
+
 ## Local Setup
 
 ### Prerequisites
