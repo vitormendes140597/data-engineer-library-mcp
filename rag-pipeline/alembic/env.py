@@ -30,7 +30,8 @@ target_metadata = Base.metadata
 def get_database_url() -> str:
     """Resolve the configured database URL for migrations."""
     database_url = (
-        app_config.DATABASE_URL
+        os.getenv("DATABASE_URL")
+        or app_config.DATABASE_URL
         or app_config.RAGConfig.from_env().database.connection_string
     )
     if not database_url:

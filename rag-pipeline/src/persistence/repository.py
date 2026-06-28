@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Sequence
@@ -9,18 +10,25 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
-                                    create_async_engine)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import selectinload
 
 from src.blob.client import BlobClient
 from src.config import DatabaseConfig, RetryConfig
-from src.persistence.models import (DOCUMENT_STATUS_PENDING,
-                                    FAILURE_STATUS_CLAIMED,
-                                    FAILURE_STATUS_PENDING,
-                                    FAILURE_STATUS_PERMANENTLY_FAILED,
-                                    FAILURE_STATUS_RESOLVED, Chunk, ChunkImage,
-                                    Document, Image, ProcessingFailure)
+from src.persistence.models import (
+    DOCUMENT_STATUS_PENDING,
+    FAILURE_STATUS_CLAIMED,
+    FAILURE_STATUS_PENDING,
+    FAILURE_STATUS_PERMANENTLY_FAILED,
+    FAILURE_STATUS_RESOLVED,
+    Chunk,
+    ChunkImage,
+    Document,
+    Image,
+    ProcessingFailure,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -93,12 +101,18 @@ class ReplacementResult:
     replaced_image_paths: list[str]
 
 
-def _normalize_async_database_url(database_url: str) -> str:
+def _normalize_async_database_url(database_url: str):
     """Normalize the configured URL for SQLAlchemy async usage."""
     url = make_url(database_url)
     if url.drivername in {"postgres", "postgresql", "postgresql+psycopg2"}:
         url = url.set(drivername="postgresql+psycopg")
-    return str(url)
+
+    return url
+
+
+def _redact_database_url(database_url: str) -> str:
+    """Render a database URL without exposing credentials."""
+    return make_url(database_url).render_as_string(hide_password=True)
 
 
 def _coerce_uuid(value: str | UUID) -> UUID:
@@ -140,8 +154,13 @@ class Repository:
         blob_client: BlobClient | None = None,
         retry_config: RetryConfig | None = None,
     ):
+        database_url = _normalize_async_database_url(database_config.connection_string)
+        logger.info(
+            "Initializing database repository with url=%s",
+            _redact_database_url(database_url),
+        )
         self._engine = create_async_engine(
-            _normalize_async_database_url(database_config.connection_string),
+            database_url,
             echo=database_config.echo_sql,
             pool_size=database_config.pool_size,
             max_overflow=database_config.max_overflow,

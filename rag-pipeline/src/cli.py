@@ -16,11 +16,7 @@ if __package__ in {None, ""}:
     package_root = src_dir.parent
     sys.path = [
         str(package_root),
-        *[
-            path
-            for path in sys.path
-            if Path(path or ".").resolve() != src_dir
-        ],
+        *[path for path in sys.path if Path(path or ".").resolve() != src_dir],
     ]
     runpy.run_module("src.cli", run_name="__main__")
     raise SystemExit(0)

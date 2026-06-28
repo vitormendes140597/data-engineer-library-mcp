@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 
 import pytest
-from click.testing import CliRunner
 from azure.storage.blob.aio import BlobServiceClient
 from azure.storage.queue.aio import QueueServiceClient
+from click.testing import CliRunner
 
 from src.cli import cli
 from src.extraction.downloader import download_pdf
@@ -46,7 +46,9 @@ async def test_cli_bootstrap_creates_containers_and_queue(
     )
     try:
         assert await blob_service.get_container_client("raw-pdfs").exists() is True
-        assert await blob_service.get_container_client("extracted-images").exists() is True
+        assert (
+            await blob_service.get_container_client("extracted-images").exists() is True
+        )
         queue_properties = await queue_service.get_queue_client(
             "pdf-processing-jobs"
         ).get_queue_properties()
@@ -73,14 +75,19 @@ async def test_cli_upload_pdf_creates_blob_and_enqueues_blobcreated(
     )
     queue = queue_service.get_queue_client(azurite_resources.queue.queue_name)
     try:
-        messages = [message async for message in queue.receive_messages(messages_per_page=1)]
+        messages = [
+            message async for message in queue.receive_messages(messages_per_page=1)
+        ]
         assert len(messages) == 1
         payload = json.loads(messages[0].content)
         assert payload["eventType"] == "Microsoft.Storage.BlobCreated"
         assert payload["data"]["contentLength"] == sample_pdf_path.stat().st_size
         assert payload["data"]["url"].endswith(f"/raw-pdfs/{sample_pdf_path.name}")
         assert payload["subject"].endswith(f"/raw-pdfs/blobs/{sample_pdf_path.name}")
-        assert await download_pdf(payload["data"]["url"], azurite_resources) == sample_pdf_path.read_bytes()
+        assert (
+            await download_pdf(payload["data"]["url"], azurite_resources)
+            == sample_pdf_path.read_bytes()
+        )
     finally:
         await queue.clear_messages()
         await queue.close()
@@ -112,7 +119,9 @@ async def test_cli_delete_blob_enqueues_blobdeleted(
     )
     queue = queue_service.get_queue_client(azurite_resources.queue.queue_name)
     try:
-        messages = [message async for message in queue.receive_messages(messages_per_page=1)]
+        messages = [
+            message async for message in queue.receive_messages(messages_per_page=1)
+        ]
         payload = json.loads(messages[0].content)
         assert payload["eventType"] == "Microsoft.Storage.BlobDeleted"
         assert payload["data"]["url"] == uploaded.blob_url

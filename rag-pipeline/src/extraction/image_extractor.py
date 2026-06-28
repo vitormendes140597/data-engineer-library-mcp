@@ -52,8 +52,8 @@ async def extract_and_upload_images(
                     f"image_{image_index}.{image_format}"
                 )
                 client = service_client.get_blob_client(
-                    container=config.storage.extracted_images_container,
-                    blob=blob_path,
+                    config.storage.extracted_images_container,
+                    blob_path,
                 )
                 await client.upload_blob(
                     image_bytes,
